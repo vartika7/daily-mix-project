@@ -1,0 +1,19 @@
+# Generated data — reproducible via data_generator.py
+daily_mix_data/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
