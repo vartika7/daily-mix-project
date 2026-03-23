@@ -29,14 +29,14 @@ A personalised **Daily Mix** playlist pinned on the Home screen for the first 30
 
 ## Key Findings (from simulated data)
 
-| Metric | Control | Treatment | Δ |
-|--------|---------|-----------|---|
-| D30 retention | ~25% | ~28.2% | **+3.2 pp** |
-| Weekly listening minutes | baseline | +4.2% | **significant** |
-| Search/Discover usage | baseline | −3% | acceptable |
-| Artist diversity index | baseline | **−12%** | ⚠️ exceeds threshold |
+| Metric                   | Control  | Treatment | Δ                    |
+| ------------------------ | -------- | --------- | -------------------- |
+| D30 retention            | ~25%     | ~28.2%    | **+3.2 pp**          |
+| Weekly listening minutes | baseline | +4.2%     | **significant**      |
+| Search/Discover usage    | baseline | −3%       | acceptable           |
+| Artist diversity index   | baseline | **−12%**  | ⚠️ exceeds threshold |
 
-**The hard decision:** Despite strong retention uplift, the 12% drop in artist diversity crossed the acceptable guardrail. Recommendation was to *not* ship the initial design — instead iterate on diversity constraints and re-test.
+**The hard decision:** Despite strong retention uplift, the 12% drop in artist diversity crossed the acceptable guardrail. Recommendation was to _not_ ship the initial design — instead iterate on diversity constraints and re-test.
 
 ## Behavioural Insights That Motivated the Feature
 
@@ -100,6 +100,6 @@ Open `notebooks/01_baseline_analysis.ipynb` in VS Code (with Jupyter extension) 
 
 ## Author
 
-Vartika — linkedin.com/in/vartika7/ | vartika.career@gmail.com
+Vartika — https://linkedin.com/in/vartika7 | vartika.career@gmail.com
 
 Built as a portfolio project for product/data analytics roles. Feedback welcome.
