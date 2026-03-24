@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Mix A/B Test Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.0/plotly.min.js"></script>
+<style>
+  :root {
+    --blue: #4361EE;
+    --red: #E63946;
+    --green: #06D6A0;
+    --yellow: #FFD166;
+    --orange: #F77F00;
+    --grey: #ADB5BD;
+    --dark: #212529;
+    --bg: #F8F9FA;
+    --card-bg: #FFFFFF;
+    --border: #E9ECEF;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--dark);
+    line-height: 1.4;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  header {
+    background: var(--dark);
+    color: #fff;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
+  header .subtitle { color: var(--grey); font-size: 11px; }
+
+  /* Navigation tabs — inline in header */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .tab {
+    padding: 6px 16px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: rgba(255,255,255,0.6);
+    border: none;
+    background: transparent;
+  }
+  .tab:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .tab.active { background: var(--blue); color: #fff; }
+
+  /* Main content fills remaining space */
+  .main { flex: 1; overflow: hidden; padding: 12px 16px; display: flex; flex-direction: column; }
+
+  /* Sections */
+  .section { display: none; flex: 1; overflow: hidden; }
+  .section.active { display: flex; flex-direction: column; }
+
+  /* KPI strip — compact horizontal */
+  .kpi-strip { display: flex; gap: 10px; margin-bottom: 10px; flex-shrink: 0; }
+  .kpi {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    flex: 1;
+    min-width: 0;
+  }
+  .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #6C757D; margin-bottom: 2px; }
+  .kpi-value { font-size: 22px; font-weight: 700; color: var(--dark); }
+  .kpi-delta { font-size: 11px; margin-top: 1px; font-weight: 500; }
+  .kpi-delta.pos { color: var(--green); }
+  .kpi-delta.neg { color: var(--red); }
+  .kpi-delta.warn { color: var(--orange); }
+  .kpi-delta.muted { color: #6C757D; }
+
+  /* Grid layouts that fill the remaining space */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; min-height: 0; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; flex: 1; min-height: 0; }
+  .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; flex: 1; min-height: 0; }
+  .grid-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; flex: 1; min-height: 0; }
+  .grid-3-2 { display: grid; grid-template-columns: 3fr 2fr; gap: 10px; flex: 1; min-height: 0; }
+
+  /* Cards — fill their grid cell */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .card h3 {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--dark);
+    flex-shrink: 0;
+  }
+  .card .chart-container { flex: 1; min-height: 0; }
+  .card .note { font-size: 10px; color: #6C757D; margin-top: 6px; flex-shrink: 0; }
+
+  /* Verdict banner — compact */
+  .verdict {
+    background: linear-gradient(135deg, #FFF5F5, #FFE3E3);
+    border: 1px solid #FFC9C9;
+    border-radius: 8px;
+    padding: 8px 16px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .verdict h3 { color: var(--red); font-size: 13px; font-weight: 700; white-space: nowrap; margin: 0; }
+  .verdict p { font-size: 11px; color: #495057; margin: 0; }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .badge-pass { background: #D3F9E8; color: #087F5B; }
+  .badge-fail { background: #FFE3E3; color: #C92A2A; }
+  .badge-sig { background: #D0EBFF; color: #1864AB; }
+  .badge-monitor { background: #FFF3BF; color: #E67700; }
+
+  /* Table */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .data-table th { text-align: left; padding: 6px 10px; border-bottom: 2px solid var(--border); color: #6C757D; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .data-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .table-scroll { overflow-y: auto; flex: 1; min-height: 0; }
+
+  /* Funnel */
+  .funnel-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 0; padding: 8px 0; }
+  .funnel-header-row { display: flex; align-items: center; gap: 12px; padding: 0 0 6px; }
+  .funnel-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+  .funnel-label { width: 180px; flex-shrink: 0; text-align: right; font-size: 13px; font-weight: 500; color: var(--dark); }
+  .funnel-track { flex: 1; height: 36px; background: #F1F3F5; border-radius: 6px; overflow: hidden; }
+  .funnel-bar { height: 100%; border-radius: 6px; transition: width 0.6s ease; }
+  .funnel-num { width: 60px; flex-shrink: 0; text-align: right; font-size: 13px; color: var(--dark); }
+  .funnel-pct { width: 56px; flex-shrink: 0; text-align: right; font-size: 13px; color: #6C757D; }
+  .funnel-step { width: 70px; flex-shrink: 0; text-align: right; font-size: 13px; font-weight: 600; color: var(--blue); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Daily Mix — New-User Retention Experiment</h1>
+    <span class="subtitle">~12,000 users &middot; 30-day window &middot; Simulated data</span>
+  </div>
+  <nav class="tabs">
+    <button class="tab active" data-section="experiment">Experiment Results</button>
+    <button class="tab" data-section="guardrails">Guardrail Monitoring</button>
+    <button class="tab" data-section="funnel">Daily Mix Funnel</button>
+    <button class="tab" data-section="baseline">Baseline Insights</button>
+  </nav>
+</header>
+
+<div class="main">
+
+  <!-- ============================================================ -->
+  <!-- SECTION 1: EXPERIMENT RESULTS                                 -->
+  <!-- ============================================================ -->
+  <div class="section active" id="section-experiment">
+
+    <div class="verdict">
+      <h3>Do Not Ship</h3>
+      <p>Retention uplift is strong (+5.3 pp D30, +9.3 pp D7), but artist diversity dropped 20% — exceeding the 10% guardrail. Iterate on diversity constraints and re-test.</p>
+    </div>
+
+    <div class="kpi-strip">
+      <div class="kpi">
+        <div class="kpi-label">D30 Control</div>
+        <div class="kpi-value">23.3%</div>
+        <div class="kpi-delta muted">n = 6,065</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">D30 Treatment</div>
+        <div class="kpi-value">28.6%</div>
+        <div class="kpi-delta pos">+5.3 pp &middot; p &lt; 0.0001</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">D7 Control</div>
+        <div class="kpi-value">55.1%</div>
+        <div class="kpi-delta muted">n = 6,065</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">D7 Treatment</div>
+        <div class="kpi-value">64.5%</div>
+        <div class="kpi-delta pos">+9.3 pp &middot; p &lt; 0.0001</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Weekly Listening</div>
+        <div class="kpi-value">+14.7%</div>
+        <div class="kpi-delta pos">52.4 vs 45.6 median min</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Diversity</div>
+        <div class="kpi-value" style="color:var(--red)">-19.8%</div>
+        <div class="kpi-delta neg">FAILS &gt;10% threshold</div>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <h3>Retention Curve — D0 to D30</h3>
+        <div class="chart-container" id="chart-retention-curve"></div>
+      </div>
+      <div class="card">
+        <h3>Weekly Listening Minutes (Median)</h3>
+        <div class="chart-container" id="chart-weekly-listening"></div>
+      </div>
+      <div class="card">
+        <h3>D30 Retention by Segment</h3>
+        <div class="chart-container" style="display:flex;gap:4px;">
+          <div id="chart-segment-platform" style="flex:1;min-width:0"></div>
+          <div id="chart-segment-country" style="flex:1;min-width:0"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 2: GUARDRAIL MONITORING                               -->
+  <!-- ============================================================ -->
+  <div class="section" id="section-guardrails">
+
+    <div class="kpi-strip">
+      <div class="kpi">
+        <div class="kpi-label">Artist Diversity</div>
+        <div class="kpi-value" style="color:var(--red)">-19.8%</div>
+        <div class="kpi-delta neg">FAILS +/-10% threshold</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Search Usage</div>
+        <div class="kpi-value" style="color:var(--green)">-3.5%</div>
+        <div class="kpi-delta pos">PASSES +/-5% threshold</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Net Listening</div>
+        <div class="kpi-value" style="color:var(--orange)">+11.2%</div>
+        <div class="kpi-delta warn">Source mix shifts</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Home Surface</div>
+        <div class="kpi-value" style="color:var(--orange)">-50.6%</div>
+        <div class="kpi-delta warn">min/user substitution</div>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <h3>Artist Diversity — Artists per 100 Plays</h3>
+        <div class="chart-container" id="chart-diversity"></div>
+        <div class="note">Normalised by play count. Mann-Whitney U p &lt; 0.0001. Control: 66.8, Treatment: 53.6.</div>
+      </div>
+      <div class="card">
+        <h3>Search Usage — Searches per User</h3>
+        <div class="chart-container" id="chart-search"></div>
+        <div class="note">-3.5% decline in search. Within threshold — exploration not cannibalised.</div>
+      </div>
+      <div class="card">
+        <h3>Cannibalization — Min per User by Source</h3>
+        <div class="chart-container" id="chart-cannibal"></div>
+        <div class="note">Daily Mix added 37.5 min/user; Home fell from 46.8 to 23.1 min/user. Net +11.2%.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 3: DAILY MIX FUNNEL                                   -->
+  <!-- ============================================================ -->
+  <div class="section" id="section-funnel">
+
+    <div class="kpi-strip">
+      <div class="kpi">
+        <div class="kpi-label">Impression &rarr; Click</div>
+        <div class="kpi-value">96.0%</div>
+        <div class="kpi-delta muted">5,694 of 5,932</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Click &rarr; Play</div>
+        <div class="kpi-value">100%</div>
+        <div class="kpi-delta muted">5,694 users</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Play &rarr; Repeat (5+)</div>
+        <div class="kpi-value">75.2%</div>
+        <div class="kpi-delta muted">4,283 repeat listeners</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Repeat &rarr; Save</div>
+        <div class="kpi-value">35.7%</div>
+        <div class="kpi-delta muted">1,530 of 4,283</div>
+      </div>
+    </div>
+
+    <div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column;">
+      <h3>Treatment User Funnel — 5,932 users exposed to Daily Mix</h3>
+      <div class="funnel-wrap">
+        <div class="funnel-header-row">
+          <span class="funnel-label"></span>
+          <div style="flex:1"></div>
+          <span class="funnel-num" style="font-size:9px;color:#6C757D">USERS</span>
+          <span class="funnel-pct" style="font-size:9px;color:#6C757D">OF TOTAL</span>
+          <span class="funnel-step" style="font-size:9px;color:#6C757D">STEP CONV.</span>
+        </div>
+        <div class="funnel-row">
+          <span class="funnel-label">Saw Daily Mix tile</span>
+          <div class="funnel-track"><div class="funnel-bar" style="width:100%;background:var(--blue)"></div></div>
+          <span class="funnel-num"><b>5,932</b></span>
+          <span class="funnel-pct">100%</span>
+          <span class="funnel-step"></span>
+        </div>
+        <div class="funnel-row">
+          <span class="funnel-label">Clicked tile</span>
+          <div class="funnel-track"><div class="funnel-bar" style="width:96%;background:var(--blue)"></div></div>
+          <span class="funnel-num"><b>5,694</b></span>
+          <span class="funnel-pct">96.0%</span>
+          <span class="funnel-step">96.0%</span>
+        </div>
+        <div class="funnel-row">
+          <span class="funnel-label">Played a track</span>
+          <div class="funnel-track"><div class="funnel-bar" style="width:96%;background:var(--blue)"></div></div>
+          <span class="funnel-num"><b>5,694</b></span>
+          <span class="funnel-pct">96.0%</span>
+          <span class="funnel-step">100%</span>
+        </div>
+        <div class="funnel-row">
+          <span class="funnel-label">Repeat listener (5+)</span>
+          <div class="funnel-track"><div class="funnel-bar" style="width:72.2%;background:var(--blue)"></div></div>
+          <span class="funnel-num"><b>4,283</b></span>
+          <span class="funnel-pct">72.2%</span>
+          <span class="funnel-step">75.2%</span>
+        </div>
+        <div class="funnel-row">
+          <span class="funnel-label">Saved a track</span>
+          <div class="funnel-track"><div class="funnel-bar" style="width:25.8%;background:var(--yellow)"></div></div>
+          <span class="funnel-num"><b>1,530</b></span>
+          <span class="funnel-pct">25.8%</span>
+          <span class="funnel-step">35.7%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 4: BASELINE INSIGHTS                                  -->
+  <!-- ============================================================ -->
+  <div class="section" id="section-baseline">
+
+    <div class="kpi-strip">
+      <div class="kpi">
+        <div class="kpi-label">Fast Activators (&lt;2 min)</div>
+        <div class="kpi-value">54.7%</div>
+        <div class="kpi-delta pos">65.6% D7 retention</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Deep Sessions (15+ min, 72h)</div>
+        <div class="kpi-value">34.9%</div>
+        <div class="kpi-delta pos">2.0x D30 lift</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">3+ Artists (Week 1)</div>
+        <div class="kpi-value">~85%</div>
+        <div class="kpi-delta pos">~1.5x D30 (controlled)</div>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <h3>Insight 1: Speed to First Play</h3>
+        <div class="chart-container" id="chart-activation"></div>
+        <div class="note">Users who played within 2 min had 37% higher D7 retention than those taking &gt;5 min.</div>
+      </div>
+      <div class="card">
+        <h3>Insight 2: Deep Early Sessions</h3>
+        <div class="chart-container" id="chart-deep"></div>
+        <div class="note">15+ min session in first 72h: 38.5% D30 vs 19.2% without (2.0x).</div>
+      </div>
+      <div class="card">
+        <h3>Insight 3: Discovery Drives Retention</h3>
+        <div class="chart-container" id="chart-discovery"></div>
+        <div class="note">3+ artists in week 1: ~1.5x D30 within the same listening-time tercile.</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+const BLUE = '#4361EE', RED = '#E63946', GREEN = '#06D6A0',
+      YELLOW = '#FFD166', ORANGE = '#F77F00', GREY = '#ADB5BD', DARK = '#212529';
+
+const baseLay = {
+  font: { family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", size: 11 },
+  margin: { t: 8, r: 16, b: 36, l: 44 },
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  xaxis: { gridcolor: '#F1F3F5', zeroline: false },
+  yaxis: { gridcolor: '#F1F3F5', zeroline: false },
+  autosize: true,
+};
+const cfg = { displayModeBar: false, responsive: true };
+
+// Tab nav
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('section-' + tab.dataset.section).classList.add('active');
+    window.dispatchEvent(new Event('resize'));
+  });
+});
+
+// ── Data ──
+const retCurve = {
+  days: Array.from({length: 31}, (_, i) => i),
+  ctrl: [87.2,45.8,45.9,45.8,29.9,29.1,29.3,55.1,13.3,13.4,12.8,12.9,13.5,12.9,13.0,4.8,4.5,4.0,4.3,4.3,4.2,4.5,4.3,4.7,4.6,4.2,4.8,4.0,4.9,4.7,23.3],
+  treat: [88.0,48.3,48.1,48.6,31.1,30.9,31.8,64.5,14.1,13.2,14.8,14.4,14.6,14.0,14.0,4.6,4.7,5.3,5.1,5.0,4.9,4.5,4.9,5.1,4.9,4.8,5.1,4.7,4.5,4.4,28.6]
+};
+
+// ── CHARTS ──
+
+// Retention Curve
+Plotly.newPlot('chart-retention-curve', [
+  { x: retCurve.days, y: retCurve.ctrl, name: 'Control', line: { color: GREY, width: 2 }, mode: 'lines+markers', marker: { size: 3 } },
+  { x: retCurve.days, y: retCurve.treat, name: 'Daily Mix', line: { color: BLUE, width: 2 }, mode: 'lines+markers', marker: { size: 3 } }
+], {
+  ...baseLay,
+  xaxis: { ...baseLay.xaxis, title: { text: 'Day', font: { size: 10 } }, dtick: 7 },
+  yaxis: { ...baseLay.yaxis, title: { text: 'Retention %', font: { size: 10 } }, range: [0, 100] },
+  legend: { x: 0.65, y: 0.98, bgcolor: 'rgba(0,0,0,0)', font: { size: 10 } },
+  annotations: [
+    { x: 7, y: 64.5, text: '<b>D7: 64.5%</b>', showarrow: true, arrowhead: 0, ax: 35, ay: -22, font: { size: 10, color: BLUE } },
+    { x: 7, y: 55.1, text: '<b>D7: 55.1%</b>', showarrow: true, arrowhead: 0, ax: 35, ay: 20, font: { size: 10, color: GREY } },
+    { x: 30, y: 28.6, text: '<b>D30: 28.6%</b>', showarrow: true, arrowhead: 0, ax: -45, ay: -20, font: { size: 10, color: BLUE } },
+    { x: 30, y: 23.3, text: '<b>D30: 23.3%</b>', showarrow: true, arrowhead: 0, ax: -45, ay: 20, font: { size: 10, color: GREY } }
+  ]
+}, cfg);
+
+// Weekly Listening
+Plotly.newPlot('chart-weekly-listening', [
+  { x: ['Wk 1','Wk 2','Wk 3','Wk 4'], y: [28.8, 12.6, 9.9, 9.7], name: 'Control', type: 'bar', marker: { color: GREY } },
+  { x: ['Wk 1','Wk 2','Wk 3','Wk 4'], y: [34.0, 13.4, 10.2, 10.5], name: 'Daily Mix', type: 'bar', marker: { color: BLUE } }
+], {
+  ...baseLay, barmode: 'group',
+  yaxis: { ...baseLay.yaxis, title: { text: 'Median Min', font: { size: 10 } } },
+  legend: { x: 0.65, y: 0.98, bgcolor: 'rgba(0,0,0,0)', font: { size: 10 } }
+}, cfg);
+
+// Segments — stacked in one card with two sub-charts
+Plotly.newPlot('chart-segment-platform', [
+  { x: ['Android','iOS','Web'], y: [23.1,23.4,23.7], name: 'Control', type: 'bar', marker: { color: GREY } },
+  { x: ['Android','iOS','Web'], y: [30.0,28.5,25.0], name: 'Treatment', type: 'bar', marker: { color: BLUE } }
+], {
+  ...baseLay, barmode: 'group', margin: { t: 20, r: 8, b: 32, l: 36 },
+  title: { text: 'Platform', font: { size: 10 }, y: 0.98 },
+  yaxis: { ...baseLay.yaxis, title: { text: 'D30 %', font: { size: 9 } }, range: [0, 38] },
+  legend: { x: 0.55, y: 0.95, bgcolor: 'rgba(0,0,0,0)', font: { size: 9 } },
+  showlegend: true
+}, cfg);
+
+Plotly.newPlot('chart-segment-country', [
+  { x: ['BR','DE','IN','UK','US'], y: [22.4,24.8,24.7,21.7,23.2], name: 'Control', type: 'bar', marker: { color: GREY } },
+  { x: ['BR','DE','IN','UK','US'], y: [31.1,28.6,29.4,28.2,27.7], name: 'Treatment', type: 'bar', marker: { color: BLUE } }
+], {
+  ...baseLay, barmode: 'group', margin: { t: 20, r: 8, b: 32, l: 36 },
+  title: { text: 'Country', font: { size: 10 }, y: 0.98 },
+  yaxis: { ...baseLay.yaxis, title: { text: 'D30 %', font: { size: 9 } }, range: [0, 38] },
+  legend: { x: 0.55, y: 0.95, bgcolor: 'rgba(0,0,0,0)', font: { size: 9 } },
+  showlegend: true
+}, cfg);
+
+// Diversity
+Plotly.newPlot('chart-diversity', [
+  { x: ['Control', 'Daily Mix'], y: [66.81, 53.55], type: 'bar',
+    marker: { color: [GREY, BLUE] },
+    text: ['66.8', '53.6'], textposition: 'outside', textfont: { size: 13, color: DARK } }
+], {
+  ...baseLay,
+  yaxis: { ...baseLay.yaxis, title: { text: 'Artists / 100 Plays', font: { size: 10 } }, range: [0, 82] },
+  shapes: [{ type: 'line', x0: -0.5, x1: 1.5, y0: 66.81*0.9, y1: 66.81*0.9, line: { color: RED, width: 1.5, dash: 'dot' } }],
+  annotations: [{ x: 0.98, y: 66.81*0.9 + 3, text: '<b>-10% threshold (60.1)</b>', showarrow: false, xref: 'paper', font: { size: 11, color: RED }, bgcolor: 'rgba(255,255,255,0.85)', borderpad: 2 }]
+}, cfg);
+
+// Search
+Plotly.newPlot('chart-search', [
+  { x: ['Control', 'Daily Mix'], y: [12.04, 11.62], type: 'bar',
+    marker: { color: [GREY, BLUE] },
+    text: ['12.04', '11.62'], textposition: 'outside', textfont: { size: 13, color: DARK } }
+], {
+  ...baseLay,
+  yaxis: { ...baseLay.yaxis, title: { text: 'Searches / User', font: { size: 10 } }, range: [0, 15] },
+  shapes: [{ type: 'line', x0: -0.5, x1: 1.5, y0: 12.04*0.95, y1: 12.04*0.95, line: { color: RED, width: 1.5, dash: 'dot' } }],
+  annotations: [{ x: 0.5, y: 12.04*0.95 + 0.7, text: '<b>-5% threshold (11.44)</b>', showarrow: false, xref: 'paper', font: { size: 11, color: RED }, bgcolor: 'rgba(255,255,255,0.85)', borderpad: 2 }]
+}, cfg);
+
+// Cannibalization
+Plotly.newPlot('chart-cannibal', [
+  { x: ['Home', 'Search', 'Daily Mix'], y: [46.8, 30.4, 0], name: 'Control', type: 'bar', marker: { color: GREY } },
+  { x: ['Home', 'Search', 'Daily Mix'], y: [23.1, 31.5, 37.5], name: 'Treatment', type: 'bar', marker: { color: BLUE } }
+], {
+  ...baseLay, barmode: 'group',
+  yaxis: { ...baseLay.yaxis, title: { text: 'Min / User', font: { size: 10 } } },
+  legend: { x: 0.65, y: 0.98, bgcolor: 'rgba(0,0,0,0)', font: { size: 10 } }
+}, cfg);
+
+// Funnel is pure HTML/CSS — no Plotly needed
+
+// Activation
+Plotly.newPlot('chart-activation', [
+  { x: ['Fast (<2m)', 'Medium (2-5m)', 'Slow (>5m)'], y: [65.6, 58.2, 47.9], type: 'bar',
+    marker: { color: [GREEN, YELLOW, RED] },
+    text: ['65.6%', '58.2%', '47.9%'], textposition: 'outside', textfont: { size: 12, color: DARK } }
+], {
+  ...baseLay,
+  yaxis: { ...baseLay.yaxis, title: { text: 'D7 Retention %', font: { size: 10 } }, range: [0, 78], autorange: false },
+  annotations: [
+    { x: 'Fast (<2m)', y: 3, text: '54.7% of users', showarrow: false, font: { size: 10, color: '#6C757D' }, bgcolor: 'rgba(255,255,255,0.85)', borderpad: 2 },
+    { x: 'Medium (2-5m)', y: 3, text: '21.3% of users', showarrow: false, font: { size: 10, color: '#6C757D' }, bgcolor: 'rgba(255,255,255,0.85)', borderpad: 2 },
+    { x: 'Slow (>5m)', y: 3, text: '23.9% of users', showarrow: false, font: { size: 10, color: '#6C757D' }, bgcolor: 'rgba(255,255,255,0.85)', borderpad: 2 }
+  ]
+}, cfg);
+
+// Deep Sessions
+Plotly.newPlot('chart-deep', [
+  { x: ['No deep session', 'Has deep session'], y: [19.2, 38.5], type: 'bar',
+    marker: { color: [GREY, BLUE] },
+    text: ['19.2%', '38.5%'], textposition: 'outside', textfont: { size: 12, color: DARK } }
+], {
+  ...baseLay,
+  yaxis: { ...baseLay.yaxis, title: { text: 'D30 Retention %', font: { size: 10 } }, range: [0, 48] },
+  annotations: [
+    { x: 'No deep session', y: 1.5, text: 'n=7,810', showarrow: false, font: { size: 10, color: '#6C757D' }, bgcolor: 'rgba(255,255,255,0.85)', borderpad: 2 },
+    { x: 'Has deep session', y: 1.5, text: 'n=4,190', showarrow: false, font: { size: 10, color: '#6C757D' }, bgcolor: 'rgba(255,255,255,0.85)', borderpad: 2 }
+  ]
+}, cfg);
+
+// Discovery Stratified
+Plotly.newPlot('chart-discovery', [
+  { x: ['Low', 'Medium', 'High'], y: [19.6, 26.1, 35.2], name: '3+ artists', type: 'bar', marker: { color: BLUE },
+    text: ['19.6%', '26.1%', '35.2%'], textposition: 'outside', textfont: { size: 10, color: DARK } },
+  { x: ['Low', 'Medium', 'High'], y: [13.3, 14.1, 33.3], name: '<3 artists', type: 'bar', marker: { color: GREY },
+    text: ['13.3%', '14.1%', '33.3%'], textposition: 'outside', textfont: { size: 10, color: DARK } }
+], {
+  ...baseLay, barmode: 'group',
+  xaxis: { ...baseLay.xaxis, title: { text: 'Listening Tercile', font: { size: 10 } } },
+  yaxis: { ...baseLay.yaxis, title: { text: 'D30 %', font: { size: 10 } }, range: [0, 44] },
+  legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(0,0,0,0)', font: { size: 10 } }
+}, cfg);
+</script>
+
+</body>
+</html>
