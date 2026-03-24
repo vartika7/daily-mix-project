@@ -15,7 +15,6 @@ CREATE TABLE users (
     country          TEXT NOT NULL,
     acquisition_channel TEXT NOT NULL,  -- 'paid_ads', 'organic', 'referral', 'social'
     initial_plan     TEXT NOT NULL CHECK (initial_plan IN ('free', 'premium')),
-    locale           TEXT,
     experiment_variant TEXT CHECK (experiment_variant IN ('control', 'daily_mix'))
 );
 
@@ -92,7 +91,7 @@ first_play AS (
         e.user_id,
         MIN(e.event_time) AS first_play_time
     FROM events e
-    WHERE e.event_type = 'play'
+    WHERE e.event_type IN ('play', 'daily_mix_play')
     GROUP BY e.user_id
 )
 SELECT
@@ -121,32 +120,35 @@ ORDER BY fo.experiment_variant, fo.platform;
 -- -------------------------------------------------
 -- 2B. D7 AND D30 RETENTION BY SIGNUP COHORT
 -- -------------------------------------------------
-WITH user_activity_days AS (
-    SELECT
-        u.user_id,
-        u.signup_date,
-        u.experiment_variant,
-        u.platform,
-        u.country,
-        e.event_time::DATE AS activity_date,
-        (e.event_time::DATE - u.signup_date) AS days_since_signup
-    FROM users u
-    JOIN events e ON u.user_id = e.user_id
-    WHERE e.event_type IN ('play', 'app_open')
+WITH d7 AS (
+    SELECT DISTINCT e.user_id
+    FROM events e
+    JOIN users u ON e.user_id = u.user_id
+    WHERE e.event_time::DATE = u.signup_date + 7
+      AND e.event_type IN ('play', 'app_open', 'daily_mix_play')
+),
+d30 AS (
+    SELECT DISTINCT e.user_id
+    FROM events e
+    JOIN users u ON e.user_id = u.user_id
+    WHERE e.event_time::DATE = u.signup_date + 30
+      AND e.event_type IN ('play', 'app_open', 'daily_mix_play')
 )
 SELECT
-    signup_date,
-    experiment_variant,
-    COUNT(DISTINCT user_id) AS cohort_size,
-    COUNT(DISTINCT CASE WHEN days_since_signup = 7  THEN user_id END) AS active_d7,
-    COUNT(DISTINCT CASE WHEN days_since_signup = 30 THEN user_id END) AS active_d30,
-    ROUND(100.0 * COUNT(DISTINCT CASE WHEN days_since_signup = 7  THEN user_id END)
-        / NULLIF(COUNT(DISTINCT user_id), 0), 2) AS d7_retention_pct,
-    ROUND(100.0 * COUNT(DISTINCT CASE WHEN days_since_signup = 30 THEN user_id END)
-        / NULLIF(COUNT(DISTINCT user_id), 0), 2) AS d30_retention_pct
-FROM user_activity_days
-GROUP BY signup_date, experiment_variant
-ORDER BY signup_date, experiment_variant;
+    u.signup_date,
+    u.experiment_variant,
+    COUNT(DISTINCT u.user_id) AS cohort_size,
+    COUNT(DISTINCT d7.user_id) AS active_d7,
+    COUNT(DISTINCT d30.user_id) AS active_d30,
+    ROUND(100.0 * COUNT(DISTINCT d7.user_id)
+        / NULLIF(COUNT(DISTINCT u.user_id), 0), 2) AS d7_retention_pct,
+    ROUND(100.0 * COUNT(DISTINCT d30.user_id)
+        / NULLIF(COUNT(DISTINCT u.user_id), 0), 2) AS d30_retention_pct
+FROM users u
+LEFT JOIN d7 ON u.user_id = d7.user_id
+LEFT JOIN d30 ON u.user_id = d30.user_id
+GROUP BY u.signup_date, u.experiment_variant
+ORDER BY u.signup_date, u.experiment_variant;
 
 
 -- -------------------------------------------------
@@ -201,7 +203,7 @@ WITH first_open AS (
 ),
 first_play AS (
     SELECT user_id, MIN(event_time) AS first_play_time
-    FROM events WHERE event_type = 'play'
+    FROM events WHERE event_type IN ('play', 'daily_mix_play')
     GROUP BY user_id
 ),
 time_to_play AS (
@@ -221,7 +223,7 @@ d7_activity AS (
     FROM events e
     JOIN users u ON e.user_id = u.user_id
     WHERE e.event_time::DATE = u.signup_date + 7
-      AND e.event_type IN ('play', 'app_open')
+      AND e.event_type IN ('play', 'app_open', 'daily_mix_play')
 )
 SELECT
     ttp.speed_bucket,
@@ -244,7 +246,7 @@ WITH deep_session_flag AS (
         s.user_id,
         MAX(CASE
             WHEN EXTRACT(EPOCH FROM (s.session_end - s.session_start)) / 60.0 >= 15
-                 AND s.session_start < u.signup_date::TIMESTAMP + INTERVAL '72 hours'
+                 AND s.session_start::DATE - u.signup_date BETWEEN 0 AND 2
             THEN 1 ELSE 0
         END) AS had_deep_session
     FROM sessions s
@@ -256,7 +258,7 @@ d30_activity AS (
     FROM events e
     JOIN users u ON e.user_id = u.user_id
     WHERE e.event_time::DATE = u.signup_date + 30
-      AND e.event_type IN ('play', 'app_open')
+      AND e.event_type IN ('play', 'app_open', 'daily_mix_play')
 )
 SELECT
     CASE WHEN dsf.had_deep_session = 1
@@ -286,7 +288,7 @@ WITH first_week_plays AS (
     FROM events e
     JOIN users u ON e.user_id = u.user_id
     JOIN tracks t ON e.track_id = t.track_id
-    WHERE e.event_type = 'play'
+    WHERE e.event_type IN ('play', 'daily_mix_play')
       AND e.event_time < u.signup_date::TIMESTAMP + INTERVAL '8 days'
 ),
 user_discovery AS (
@@ -319,7 +321,7 @@ d30_activity AS (
     FROM events e
     JOIN users u ON e.user_id = u.user_id
     WHERE e.event_time::DATE = u.signup_date + 30
-      AND e.event_type IN ('play', 'app_open')
+      AND e.event_type IN ('play', 'app_open', 'daily_mix_play')
 )
 SELECT
     us.listening_tercile,
@@ -385,13 +387,12 @@ WITH weekly_minutes AS (
     SELECT
         u.user_id,
         u.experiment_variant,
-        FLOOR((e.event_time::DATE - u.signup_date) / 7) + 1 AS week_num,
-        SUM(t.duration_ms) / 60000.0 AS listening_min
-    FROM events e
-    JOIN users u ON e.user_id = u.user_id
-    JOIN tracks t ON e.track_id = t.track_id
-    WHERE e.event_type IN ('play', 'daily_mix_play')
-      AND e.event_time < u.signup_date::TIMESTAMP + INTERVAL '31 days'
+        FLOOR((s.session_start::DATE - u.signup_date) / 7) + 1 AS week_num,
+        SUM(s.total_play_ms) / 60000.0 AS listening_min
+    FROM sessions s
+    JOIN users u ON s.user_id = u.user_id
+    WHERE s.session_start >= u.signup_date::TIMESTAMP
+      AND s.session_start < u.signup_date::TIMESTAMP + INTERVAL '31 days'
     GROUP BY u.user_id, u.experiment_variant, week_num
 ),
 p95 AS (
@@ -462,6 +463,8 @@ ORDER BY week_num, experiment_variant;
 -- -------------------------------------------------
 -- 3E. CANNIBALIZATION CHECK: minutes by source
 --     (Daily Mix vs all other surfaces)
+--     Uses track duration (not session play time) because
+--     source attribution is only available on events.
 -- -------------------------------------------------
 WITH source_minutes AS (
     SELECT
@@ -502,7 +505,7 @@ WITH d30_activity AS (
     FROM events e
     JOIN users u ON e.user_id = u.user_id
     WHERE e.event_time::DATE = u.signup_date + 30
-      AND e.event_type IN ('play', 'app_open')
+      AND e.event_type IN ('play', 'app_open', 'daily_mix_play')
 )
 SELECT
     u.experiment_variant,

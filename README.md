@@ -13,17 +13,14 @@ A personalised **Daily Mix** playlist pinned on the Home screen for the first 30
 ## What's in This Repo
 
 ```
-├── data_generator.py              # Generates ~12K users, ~500K+ events
+├── data_generator.py              # Generates ~12K users, ~690K events
 ├── daily_mix_data/                # Generated CSVs (not committed — run generator)
 ├── sql/
 │   └── schema_and_queries.sql     # DDL + 12 analytical queries (PostgreSQL)
 ├── notebooks/
+│   ├── 00_setup_test.ipynb        # DuckDB loader + quick validation
 │   ├── 01_baseline_analysis.ipynb # Funnels, retention curves, behavioural insights
 │   └── 02_experiment_analysis.ipynb # A/B test results, guardrails, trade-off decision
-├── dashboard/                     # Interactive dashboard (Streamlit / Tableau)
-├── docs/
-│   ├── case_study.md              # 6–10 page written case study
-│   └── decision_log.md            # Why every decision was made + AI usage log
 └── requirements.txt
 ```
 
@@ -31,18 +28,19 @@ A personalised **Daily Mix** playlist pinned on the Home screen for the first 30
 
 | Metric                   | Control  | Treatment | Δ                    |
 | ------------------------ | -------- | --------- | -------------------- |
-| D30 retention            | ~25%     | ~28.2%    | **+3.2 pp**          |
-| Weekly listening minutes | baseline | +4.2%     | **significant**      |
-| Search/Discover usage    | baseline | −3%       | acceptable           |
-| Artist diversity index   | baseline | **−12%**  | ⚠️ exceeds threshold |
+| D30 retention            | 23.3%    | 28.6%     | **+5.3 pp**          |
+| D7 retention             | 55.1%    | 64.5%     | **+9.3 pp**          |
+| Weekly listening minutes | baseline | +14.7%    | **significant**      |
+| Search/Discover usage    | baseline | -3.5%     | acceptable           |
+| Artist diversity (per 100 plays) | baseline | **-19.8%** | exceeds threshold |
 
-**The hard decision:** Despite strong retention uplift, the 12% drop in artist diversity crossed the acceptable guardrail. Recommendation was to _not_ ship the initial design — instead iterate on diversity constraints and re-test.
+**The hard decision:** Despite strong retention uplift, the 20% drop in artist diversity per 100 plays crossed the acceptable guardrail (>10%). Recommendation was to _not_ ship the initial design — instead iterate on diversity constraints and re-test.
 
 ## Behavioural Insights That Motivated the Feature
 
-1. **Speed to first play matters** — Users who played a track within 2 minutes of first app open had ~40% higher D7 retention.
-2. **Deep early sessions matter** — Users with at least one 15+ minute session in the first 72 hours had ~3× higher D30 retention.
-3. **Discovery drives retention** — Users who discovered 3+ new artists in week 1 retained at ~1.8× the rate of others, even controlling for total listening time.
+1. **Speed to first play matters** — Users who played a track within 2 minutes of first app open had ~37% higher D7 retention (~1.4× ratio) compared to users who took longer than 5 minutes.
+2. **Deep early sessions matter** — Users with at least one 15+ minute session in the first 72 hours had ~2.1× higher D30 retention.
+3. **Discovery drives retention** — Users who discovered 3+ new artists in week 1 retained at ~1.5× the rate of others within the same listening-time tercile, suggesting discovery has a meaningful independent effect on retention.
 
 ## How to Run
 
@@ -62,7 +60,7 @@ pip install -r requirements.txt
 python data_generator.py
 ```
 
-This creates 5 CSVs in `./daily_mix_data/` (~12K users, ~500K+ events). Takes ~30–60 seconds.
+This creates 5 CSVs in `./daily_mix_data/` (~12K users, ~690K events). Takes ~30–60 seconds.
 
 ### 3. Load into DuckDB and query
 
@@ -88,14 +86,13 @@ Open `notebooks/01_baseline_analysis.ipynb` in VS Code (with Jupyter extension) 
 
 - **Data is synthetic.** Generated with known parameters to demonstrate the analytical workflow. Behavioural correlations are embedded via latent user traits, not hardcoded on outcomes — so analysis recovers them with realistic noise.
 - **Statistical approach:** Retention reported as proportions with confidence intervals. Engagement uses median and Winsorized means to handle power-user skew. Discovery insight uses tercile stratification to control for total listening time.
-- **AI usage:** Claude was used to accelerate SQL/Python drafting. All analytical decisions (metric selection, experiment design, trade-off judgment) are original. See `docs/decision_log.md` for a full transparency log.
+- **AI usage:** Claude was used to accelerate SQL/Python drafting. All analytical decisions (metric selection, experiment design, trade-off judgment) are original.
 
 ## Tech Stack
 
 - **Languages:** Python, SQL (PostgreSQL-compatible)
 - **Database:** DuckDB (development), PostgreSQL (production-style)
 - **Analysis:** pandas, numpy, scipy, matplotlib, seaborn
-- **Dashboard:** Streamlit or Tableau Public
 - **Versioning:** Git
 
 ## Author

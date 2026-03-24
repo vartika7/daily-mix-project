@@ -61,9 +61,9 @@ FREE_RATE = 0.88  # 88% free, 12% premium at signup
 # --- Engagement parameters ---
 # Base D30 retention for control group: ~25%
 # Set lower than 25% because organic day-30 activity adds ~5-7pp on top
-CONTROL_D30_BASE = 0.15
+CONTROL_D30_BASE = 0.10
 # Treatment uplift: +3.2 percentage points
-TREATMENT_D30_UPLIFT = 0.032
+TREATMENT_D30_UPLIFT = 0.04
 # D7 is roughly 2× D30
 D7_TO_D30_RATIO = 2.0
 
@@ -74,7 +74,7 @@ DISCOVERY_D30_MULTIPLIER = 1.4    # ~1.8× (with noise it'll land around there)
 
 # Treatment-specific effects
 TREATMENT_DEEP_SESSION_BOOST = 0.15  # 15pp more likely to get deep session
-TREATMENT_DIVERSITY_PENALTY = 0.12   # 12% fewer unique artists
+TREATMENT_DIVERSITY_PENALTY = 0.25   # stronger penalty to ensure guardrail breach
 TREATMENT_SEARCH_REDUCTION = 0.03    # 3% fewer search events
 TREATMENT_LISTENING_BOOST = 0.042    # 4.2% more listening minutes
 
@@ -137,11 +137,14 @@ def generate_catalog():
     top_tracks = tracks_df[
         tracks_df.popularity_bucket.isin(["top_1%", "top_10%"])
     ].track_id.tolist()
+    ultra_safe_tracks = tracks_df[
+        tracks_df.popularity_bucket == "top_1%"
+    ].track_id.tolist()
     all_tracks = tracks_df.track_id.tolist()
 
-    return artists_df, tracks_df, top_tracks, all_tracks
+    return artists_df, tracks_df, top_tracks, ultra_safe_tracks, all_tracks
 
-artists_df, tracks_df, top_tracks, all_tracks = generate_catalog()
+artists_df, tracks_df, top_tracks, ultra_safe_tracks, all_tracks = generate_catalog()
 track_duration = dict(zip(tracks_df.track_id, tracks_df.duration_ms))
 track_artist = dict(zip(tracks_df.track_id, tracks_df.artist_id))
 track_genre = dict(zip(tracks_df.track_id, tracks_df.genre))
@@ -206,18 +209,18 @@ def pick_tracks(n, user_genre_prefs, user_played_artists, variant, country):
         roll = np.random.random()
 
         if variant == "daily_mix" and len(user_genre_prefs) > 0:
-            # Treatment: Daily Mix rules — heavier popular/safe weighting
-            # This is what causes the diversity penalty
-            if roll < 0.55:
-                # Popular, low-skip tracks (biased toward top buckets)
-                chosen.append(np.random.choice(top_tracks) if top_tracks else np.random.choice(all_tracks))
-            elif roll < 0.85:
-                # Same-genre tracks
+            # Treatment: Daily Mix over-indexes on safe, popular content
+            # 85% popular (70% from ultra-narrow top_1%), 12% same-genre, 3% discovery
+            if roll < 0.85:
+                if np.random.random() < 0.70 and ultra_safe_tracks:
+                    chosen.append(np.random.choice(ultra_safe_tracks))
+                else:
+                    chosen.append(np.random.choice(top_tracks) if top_tracks else np.random.choice(all_tracks))
+            elif roll < 0.97:
                 genre = np.random.choice(list(user_genre_prefs))
                 pool = tracks_by_genre.get(genre, all_tracks)
                 chosen.append(np.random.choice(pool))
             else:
-                # Discovery slot
                 chosen.append(np.random.choice(all_tracks))
         else:
             # Control or cold-start: more organic, diverse browsing
@@ -249,8 +252,20 @@ for _, user in users_df.iterrows():
         base_engagement = min(1.0, base_engagement * (1 + TREATMENT_LISTENING_BOOST))
 
     # Will this user activate fast? (correlated with engagement)
-    p_fast_activate = 0.3 + 0.5 * base_engagement  # range ~0.3–0.8
-    is_fast_activator = np.random.random() < p_fast_activate
+    # Activation speed — needs clear slow/medium/fast segments for Insight 1
+    activation_roll = np.random.random()
+    if activation_roll < 0.35 + 0.15 * base_engagement:
+        is_fast_activator = True    # plays within 2 min
+        activation_delay_sec = np.random.randint(10, 120)
+    elif activation_roll < 0.65 + 0.10 * base_engagement:
+        is_fast_activator = False   # plays within 2-5 min
+        activation_delay_sec = np.random.randint(121, 300)
+    elif activation_roll < 0.85 + 0.05 * base_engagement:
+        is_fast_activator = False   # plays after 5+ min
+        activation_delay_sec = np.random.randint(301, 900)
+    else:
+        is_fast_activator = False   # never plays in first session (churns early)
+        activation_delay_sec = None
 
     # Will this user get a deep session in first 72h?
     p_deep = 0.10 + 0.60 * base_engagement  # range ~0.1–0.7
@@ -269,22 +284,30 @@ for _, user in users_df.iterrows():
     # Behavioural boosts (these create the correlations your analysis will find)
     # Applied additively rather than multiplicatively to prevent compounding
     if is_fast_activator:
-        d30_prob += 0.04  # flat boost, keeps things controlled
+        d30_prob += 0.09  # strong boost — fast activation is a key retention signal
+    elif activation_delay_sec is not None and activation_delay_sec > 300:
+        d30_prob -= 0.07  # slow activators churn more
+    elif activation_delay_sec is None:
+        d30_prob -= 0.09  # never-played users churn hard
     if will_have_deep_session:
-        d30_prob += 0.08  # flat boost rather than multiplier
+        d30_prob += 0.20  # strong boost — deep sessions are the key "aha moment"
+
+    # --- How many artists will they discover? ---
+    # Higher engagement → more discovery, treatment slightly reduces it
+    expected_artists = 1.0 + base_engagement * 5  # range ~1–6
+    if is_treatment:
+        expected_artists *= (1 - TREATMENT_DIVERSITY_PENALTY)
+    target_unique_artists = max(1, int(np.random.normal(expected_artists, 2.5)))
+
+    # Discovery boost — users who encounter more artists retain better
+    if target_unique_artists >= 3:
+        d30_prob += 0.08
 
     d30_prob = np.clip(d30_prob, 0.02, 0.85)
     d7_prob = min(0.90, d30_prob * D7_TO_D30_RATIO)
 
     is_retained_d7 = np.random.random() < d7_prob
     is_retained_d30 = np.random.random() < d30_prob
-
-    # --- How many artists will they discover? ---
-    # Higher engagement → more discovery, treatment slightly reduces it
-    expected_artists = 2 + base_engagement * 12  # range ~2–14
-    if is_treatment:
-        expected_artists *= (1 - TREATMENT_DIVERSITY_PENALTY)
-    target_unique_artists = max(1, int(np.random.normal(expected_artists, 2)))
 
     # --- Simulate day-by-day activity ---
     user_genre_prefs = set()
@@ -304,7 +327,7 @@ for _, user in users_df.iterrows():
         elif day_offset <= 14:
             p_active = 0.06 + 0.25 * base_engagement
         else:
-            p_active = 0.02 + 0.15 * base_engagement
+            p_active = 0.01 + 0.12 * base_engagement
 
         # Force activity on retention measurement days if retained
         if day_offset == 7 and is_retained_d7:
@@ -384,6 +407,45 @@ for _, user in users_df.iterrows():
                 })
                 t += timedelta(seconds=np.random.randint(1, 3))
 
+            # --- First session activation delay logic ---
+            is_first_session = (day_offset == 0 and sess_idx == 0)
+            skip_plays_this_session = False
+
+            if is_first_session and activation_delay_sec is None:
+                # User never plays in first session — browse only
+                skip_plays_this_session = True
+                # Add a couple search/browse events to simulate looking around
+                for _ in range(np.random.randint(1, 4)):
+                    events_in_session.append({
+                        "user_id": uid, "event_time": t, "event_type": "search",
+                        "session_id": sid, "source": "search", "track_id": None,
+                        "playlist_id": None, "experiment_variant": variant,
+                        "position_on_home": None,
+                    })
+                    t += timedelta(seconds=np.random.randint(10, 40))
+
+            if is_first_session and activation_delay_sec is not None:
+                # Advance time to simulate the delay before first play
+                elapsed_so_far = (t - sess_start).total_seconds()
+                extra_wait = max(0, activation_delay_sec - elapsed_so_far)
+
+                if is_fast_activator:
+                    # Fast activators skip search — go straight to play
+                    t += timedelta(seconds=extra_wait)
+                else:
+                    # Slow activators fill the delay with search/browse events
+                    time_to_fill = extra_wait
+                    while time_to_fill > 10:
+                        events_in_session.append({
+                            "user_id": uid, "event_time": t, "event_type": "search",
+                            "session_id": sid, "source": "search", "track_id": None,
+                            "playlist_id": None, "experiment_variant": variant,
+                            "position_on_home": None,
+                        })
+                        gap = np.random.randint(8, 30)
+                        t += timedelta(seconds=gap)
+                        time_to_fill -= gap
+
             # --- Decide: search or play from home/daily_mix ---
             # Treatment users less likely to search (Daily Mix gives easy play)
             p_search_first = 0.40
@@ -395,7 +457,7 @@ for _, user in users_df.iterrows():
 
             does_search = np.random.random() < p_search_first
 
-            if does_search:
+            if does_search and not skip_plays_this_session:
                 events_in_session.append({
                     "user_id": uid, "event_time": t, "event_type": "search",
                     "session_id": sid, "source": "search", "track_id": None,
@@ -406,7 +468,7 @@ for _, user in users_df.iterrows():
 
             # Daily Mix click for treatment (high click-through)
             dm_source = False
-            if is_treatment and not does_search and np.random.random() < 0.65:
+            if is_treatment and not does_search and not skip_plays_this_session and np.random.random() < 0.65:
                 events_in_session.append({
                     "user_id": uid, "event_time": t,
                     "event_type": "daily_mix_click",
@@ -421,11 +483,24 @@ for _, user in users_df.iterrows():
             # --- Play tracks ---
             remaining_ms = session_min * 60 * 1000
             n_tracks_possible = max(1, int(remaining_ms / 180_000))  # ~3min avg
-            tracks_to_play = pick_tracks(
-                n_tracks_possible, user_genre_prefs,
-                user_played_artists, variant if dm_source else "control",
-                country
-            )
+
+            if skip_plays_this_session:
+                tracks_to_play = []
+            else:
+                tracks_to_play = pick_tracks(
+                    n_tracks_possible, user_genre_prefs,
+                    user_played_artists, variant,
+                    country
+                )
+
+            # Constrain diversity for low-discovery users — force artist repetition
+            if target_unique_artists < 3 and len(user_played_artists) > 0:
+                familiar_tracks = [t_id for t_id in all_tracks
+                                   if track_artist.get(t_id, '') in user_played_artists]
+                if familiar_tracks:
+                    for i in range(len(tracks_to_play)):
+                        if np.random.random() < 0.70:
+                            tracks_to_play[i] = np.random.choice(familiar_tracks)
 
             total_play_ms = 0
             total_skips = 0
@@ -552,7 +627,7 @@ print(users_df.country.value_counts(normalize=True).round(3))
 print(f"\nTop event types:")
 print(events_df.event_type.value_counts().head(15))
 
-print("\n✅ Data generation complete. Run the DuckDB loader below to start querying.")
+print("\nData generation complete. Run the DuckDB loader below to start querying.")
 
 
 # =============================================================
