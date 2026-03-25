@@ -1,5 +1,5 @@
 """
-Daily Mix Project — Synthetic Data Generator
+Daily Mix Project - Synthetic Data Generator
 =============================================
 Generates ~12K users, ~500K+ events across 5 tables (users, tracks, artists,
 sessions, events) with embedded behavioural signals for the Daily Mix A/B test.
@@ -30,7 +30,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 # =============================================================
-# CONFIGURATION — tweak these to adjust dataset characteristics
+# CONFIGURATION - tweak these to adjust dataset characteristics
 # =============================================================
 SEED = 42
 np.random.seed(SEED)
@@ -163,7 +163,7 @@ print(f"  {len(artists_df)} artists, {len(tracks_df)} tracks")
 print("Generating users...")
 
 def assign_variant(user_id):
-    """Deterministic 50/50 assignment via hash — mirrors real experiment infra."""
+    """Deterministic 50/50 assignment via hash - mirrors real experiment infra."""
     h = int(hashlib.md5(user_id.encode()).hexdigest(), 16)
     return "daily_mix" if h % 2 == 0 else "control"
 
@@ -186,7 +186,7 @@ users_df = pd.DataFrame(user_rows)
 
 ctrl_n = (users_df.experiment_variant == "control").sum()
 treat_n = (users_df.experiment_variant == "daily_mix").sum()
-print(f"  {N_USERS} users — control: {ctrl_n}, treatment: {treat_n}")
+print(f"  {N_USERS} users - control: {ctrl_n}, treatment: {treat_n}")
 
 
 # =============================================================
@@ -252,7 +252,7 @@ for _, user in users_df.iterrows():
         base_engagement = min(1.0, base_engagement * (1 + TREATMENT_LISTENING_BOOST))
 
     # Will this user activate fast? (correlated with engagement)
-    # Activation speed — needs clear slow/medium/fast segments for Insight 1
+    # Activation speed - needs clear slow/medium/fast segments for Insight 1
     activation_roll = np.random.random()
     if activation_roll < 0.35 + 0.15 * base_engagement:
         is_fast_activator = True    # plays within 2 min
@@ -284,13 +284,13 @@ for _, user in users_df.iterrows():
     # Behavioural boosts (these create the correlations your analysis will find)
     # Applied additively rather than multiplicatively to prevent compounding
     if is_fast_activator:
-        d30_prob += 0.09  # strong boost — fast activation is a key retention signal
+        d30_prob += 0.09  # strong boost - fast activation is a key retention signal
     elif activation_delay_sec is not None and activation_delay_sec > 300:
         d30_prob -= 0.07  # slow activators churn more
     elif activation_delay_sec is None:
         d30_prob -= 0.09  # never-played users churn hard
     if will_have_deep_session:
-        d30_prob += 0.20  # strong boost — deep sessions are the key "aha moment"
+        d30_prob += 0.20  # strong boost - deep sessions are the key "aha moment"
 
     # --- How many artists will they discover? ---
     # Higher engagement → more discovery, treatment slightly reduces it
@@ -299,7 +299,7 @@ for _, user in users_df.iterrows():
         expected_artists *= (1 - TREATMENT_DIVERSITY_PENALTY)
     target_unique_artists = max(1, int(np.random.normal(expected_artists, 2.5)))
 
-    # Discovery boost — users who encounter more artists retain better
+    # Discovery boost - users who encounter more artists retain better
     if target_unique_artists >= 3:
         d30_prob += 0.08
 
@@ -412,7 +412,7 @@ for _, user in users_df.iterrows():
             skip_plays_this_session = False
 
             if is_first_session and activation_delay_sec is None:
-                # User never plays in first session — browse only
+                # User never plays in first session - browse only
                 skip_plays_this_session = True
                 # Add a couple search/browse events to simulate looking around
                 for _ in range(np.random.randint(1, 4)):
@@ -430,7 +430,7 @@ for _, user in users_df.iterrows():
                 extra_wait = max(0, activation_delay_sec - elapsed_so_far)
 
                 if is_fast_activator:
-                    # Fast activators skip search — go straight to play
+                    # Fast activators skip search - go straight to play
                     t += timedelta(seconds=extra_wait)
                 else:
                     # Slow activators fill the delay with search/browse events
@@ -493,7 +493,7 @@ for _, user in users_df.iterrows():
                     country
                 )
 
-            # Constrain diversity for low-discovery users — force artist repetition
+            # Constrain diversity for low-discovery users - force artist repetition
             if target_unique_artists < 3 and len(user_played_artists) > 0:
                 familiar_tracks = [t_id for t_id in all_tracks
                                    if track_artist.get(t_id, '') in user_played_artists]
@@ -635,7 +635,7 @@ print("\nData generation complete. Run the DuckDB loader below to start querying
 # =============================================================
 DUCKDB_LOADER = """
 # -----------------------------------------------
-# DuckDB Quick-Start — run this in a Jupyter cell
+# DuckDB Quick-Start - run this in a Jupyter cell
 # -----------------------------------------------
 # pip install duckdb
 
@@ -652,7 +652,7 @@ for table in ['users', 'tracks', 'artists', 'sessions', 'events']:
     count = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
     print(f"  {table}: {count:,} rows loaded")
 
-# Quick test — D30 retention by variant
+# Quick test - D30 retention by variant
 print("\\n--- D30 Retention by Variant (quick check) ---")
 print(con.execute(\"\"\"
     WITH d30 AS (

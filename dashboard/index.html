@@ -42,7 +42,7 @@
   header h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
   header .subtitle { color: var(--grey); font-size: 11px; }
 
-  /* Navigation tabs — inline in header */
+  /* Navigation tabs - inline in header */
   .tabs {
     display: flex;
     gap: 2px;
@@ -72,7 +72,7 @@
   .section { display: none; flex: 1; overflow: hidden; }
   .section.active { display: flex; flex-direction: column; }
 
-  /* KPI strip — compact horizontal */
+  /* KPI strip - compact horizontal */
   .kpi-strip { display: flex; gap: 10px; margin-bottom: 10px; flex-shrink: 0; }
   .kpi {
     background: var(--card-bg);
@@ -97,7 +97,7 @@
   .grid-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; flex: 1; min-height: 0; }
   .grid-3-2 { display: grid; grid-template-columns: 3fr 2fr; gap: 10px; flex: 1; min-height: 0; }
 
-  /* Cards — fill their grid cell */
+  /* Cards - fill their grid cell */
   .card {
     background: var(--card-bg);
     border: 1px solid var(--border);
@@ -118,7 +118,7 @@
   .card .chart-container { flex: 1; min-height: 0; }
   .card .note { font-size: 10px; color: #6C757D; margin-top: 6px; flex-shrink: 0; }
 
-  /* Verdict banner — compact */
+  /* Verdict banner - compact */
   .verdict {
     background: linear-gradient(135deg, #FFF5F5, #FFE3E3);
     border: 1px solid #FFC9C9;
@@ -170,7 +170,7 @@
 
 <header>
   <div>
-    <h1>Daily Mix — New-User Retention Experiment</h1>
+    <h1>Daily Mix - New-User Retention Experiment</h1>
     <span class="subtitle">~12,000 users &middot; 30-day window &middot; Simulated data</span>
   </div>
   <nav class="tabs">
@@ -190,7 +190,7 @@
 
     <div class="verdict">
       <h3>Do Not Ship</h3>
-      <p>Retention uplift is strong (+5.3 pp D30, +9.3 pp D7), but artist diversity dropped 20% — exceeding the 10% guardrail. Iterate on diversity constraints and re-test.</p>
+      <p>Retention uplift is strong (+5.3 pp D30, +9.3 pp D7), but artist diversity dropped 20% - exceeding the 10% guardrail. Iterate on diversity constraints and re-test.</p>
     </div>
 
     <div class="kpi-strip">
@@ -228,7 +228,7 @@
 
     <div class="grid-3">
       <div class="card">
-        <h3>Retention Curve — D0 to D30</h3>
+        <h3>Retention Curve - D0 to D30</h3>
         <div class="chart-container" id="chart-retention-curve"></div>
       </div>
       <div class="card">
@@ -275,17 +275,17 @@
 
     <div class="grid-3">
       <div class="card">
-        <h3>Artist Diversity — Artists per 100 Plays</h3>
+        <h3>Artist Diversity - Artists per 100 Plays</h3>
         <div class="chart-container" id="chart-diversity"></div>
         <div class="note">Normalised by play count. Mann-Whitney U p &lt; 0.0001. Control: 66.8, Treatment: 53.6.</div>
       </div>
       <div class="card">
-        <h3>Search Usage — Searches per User</h3>
+        <h3>Search Usage - Searches per User</h3>
         <div class="chart-container" id="chart-search"></div>
-        <div class="note">-3.5% decline in search. Within threshold — exploration not cannibalised.</div>
+        <div class="note">-3.5% decline in search. Within threshold - exploration not cannibalised.</div>
       </div>
       <div class="card">
-        <h3>Cannibalization — Min per User by Source</h3>
+        <h3>Cannibalization - Min per User by Source</h3>
         <div class="chart-container" id="chart-cannibal"></div>
         <div class="note">Daily Mix added 37.5 min/user; Home fell from 46.8 to 23.1 min/user. Net +11.2%.</div>
       </div>
@@ -321,7 +321,7 @@
     </div>
 
     <div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column;">
-      <h3>Treatment User Funnel — 5,932 users exposed to Daily Mix</h3>
+      <h3>Treatment User Funnel - 5,932 users exposed to Daily Mix</h3>
       <div class="funnel-wrap">
         <div class="funnel-header-row">
           <span class="funnel-label"></span>
@@ -475,7 +475,7 @@ Plotly.newPlot('chart-weekly-listening', [
   legend: { x: 0.65, y: 0.98, bgcolor: 'rgba(0,0,0,0)', font: { size: 10 } }
 }, cfg);
 
-// Segments — stacked in one card with two sub-charts
+// Segments - stacked in one card with two sub-charts
 Plotly.newPlot('chart-segment-platform', [
   { x: ['Android','iOS','Web'], y: [23.1,23.4,23.7], name: 'Control', type: 'bar', marker: { color: GREY } },
   { x: ['Android','iOS','Web'], y: [30.0,28.5,25.0], name: 'Treatment', type: 'bar', marker: { color: BLUE } }
@@ -532,7 +532,7 @@ Plotly.newPlot('chart-cannibal', [
   legend: { x: 0.65, y: 0.98, bgcolor: 'rgba(0,0,0,0)', font: { size: 10 } }
 }, cfg);
 
-// Funnel is pure HTML/CSS — no Plotly needed
+// Funnel is pure HTML/CSS - no Plotly needed
 
 // Activation
 Plotly.newPlot('chart-activation', [

@@ -1,5 +1,5 @@
 -- ============================================================
--- DAILY MIX PROJECT — SQL SCHEMA & CORE ANALYTICAL QUERIES
+-- DAILY MIX PROJECT - SQL SCHEMA & CORE ANALYTICAL QUERIES
 -- Target: PostgreSQL (minor tweaks for BigQuery noted inline)
 -- ============================================================
 

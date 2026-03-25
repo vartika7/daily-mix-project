@@ -1,6 +1,6 @@
 # Designing "Daily Mix" to Fix New-User Retention in a Music Streaming App
 
-A portfolio project demonstrating end-to-end product analytics: problem diagnosis, behavioural insights, feature design, A/B test analysis, and business impact modelling — all built on a realistic simulated dataset.
+A portfolio project demonstrating end-to-end product analytics: problem diagnosis, behavioural insights, feature design, A/B test analysis, and business impact modelling - all built on a realistic simulated dataset.
 
 ## The Problem
 
@@ -14,7 +14,7 @@ A personalised **Daily Mix** playlist pinned on the Home screen for the first 30
 
 ```
 ├── data_generator.py              # Generates ~12K users, ~690K events
-├── daily_mix_data/                # Generated CSVs (not committed — run generator)
+├── daily_mix_data/                # Generated CSVs (not committed - run generator)
 ├── sql/
 │   └── schema_and_queries.sql     # DDL + 12 analytical queries (PostgreSQL)
 ├── notebooks/
@@ -34,13 +34,13 @@ A personalised **Daily Mix** playlist pinned on the Home screen for the first 30
 | Search/Discover usage    | baseline | -3.5%     | acceptable           |
 | Artist diversity (per 100 plays) | baseline | **-19.8%** | exceeds threshold |
 
-**The hard decision:** Despite strong retention uplift, the 20% drop in artist diversity per 100 plays crossed the acceptable guardrail (>10%). Recommendation was to _not_ ship the initial design — instead iterate on diversity constraints and re-test.
+**The hard decision:** Despite strong retention uplift, the 20% drop in artist diversity per 100 plays crossed the acceptable guardrail (>10%). Recommendation was to _not_ ship the initial design - instead iterate on diversity constraints and re-test.
 
 ## Behavioural Insights That Motivated the Feature
 
-1. **Speed to first play matters** — Users who played a track within 2 minutes of first app open had ~37% higher D7 retention (~1.4× ratio) compared to users who took longer than 5 minutes.
-2. **Deep early sessions matter** — Users with at least one 15+ minute session in the first 72 hours had ~2.1× higher D30 retention.
-3. **Discovery drives retention** — Users who discovered 3+ new artists in week 1 retained at ~1.5× the rate of others within the same listening-time tercile, suggesting discovery has a meaningful independent effect on retention.
+1. **Speed to first play matters** - Users who played a track within 2 minutes of first app open had ~37% higher D7 retention (~1.4× ratio) compared to users who took longer than 5 minutes.
+2. **Deep early sessions matter** - Users with at least one 15+ minute session in the first 72 hours had ~2.1× higher D30 retention.
+3. **Discovery drives retention** - Users who discovered 3+ new artists in week 1 retained at ~1.5× the rate of others within the same listening-time tercile, suggesting discovery has a meaningful independent effect on retention.
 
 ## How to Run
 
@@ -84,7 +84,7 @@ Open `notebooks/01_baseline_analysis.ipynb` in VS Code (with Jupyter extension) 
 
 ## Methodology Notes
 
-- **Data is synthetic.** Generated with known parameters to demonstrate the analytical workflow. Behavioural correlations are embedded via latent user traits, not hardcoded on outcomes — so analysis recovers them with realistic noise.
+- **Data is synthetic.** Generated with known parameters to demonstrate the analytical workflow. Behavioural correlations are embedded via latent user traits, not hardcoded on outcomes - so analysis recovers them with realistic noise.
 - **Statistical approach:** Retention reported as proportions with confidence intervals. Engagement uses median and Winsorized means to handle power-user skew. Discovery insight uses tercile stratification to control for total listening time.
 - **AI usage:** Claude was used to accelerate SQL/Python drafting. All analytical decisions (metric selection, experiment design, trade-off judgment) are original.
 
@@ -97,6 +97,6 @@ Open `notebooks/01_baseline_analysis.ipynb` in VS Code (with Jupyter extension) 
 
 ## Author
 
-Vartika — https://linkedin.com/in/vartika7 | vartika.career@gmail.com
+Vartika - https://linkedin.com/in/vartika7 | vartika.career@gmail.com
 
 Built as a portfolio project for product/data analytics roles. Feedback welcome.
