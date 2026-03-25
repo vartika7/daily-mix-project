@@ -178,7 +178,6 @@ for i in range(N_USERS):
         "country": np.random.choice(COUNTRIES, p=COUNTRY_WEIGHTS),
         "acquisition_channel": np.random.choice(ACQ_CHANNELS, p=ACQ_WEIGHTS),
         "initial_plan": "free" if np.random.random() < FREE_RATE else "premium",
-        "locale": None,  # could enrich later
         "experiment_variant": assign_variant(uid),
     })
 
@@ -236,7 +235,7 @@ def pick_tracks(n, user_genre_prefs, user_played_artists, variant, country):
     return chosen
 
 
-for _, user in users_df.iterrows():
+for idx, user in users_df.iterrows():
     uid = user.user_id
     signup = datetime.strptime(user.signup_date, "%Y-%m-%d")
     variant = user.experiment_variant
@@ -572,8 +571,8 @@ for _, user in users_df.iterrows():
             all_events.extend(events_in_session)
 
     # Progress indicator
-    if (_ + 1) % 2000 == 0:
-        print(f"  ...processed {_ + 1}/{N_USERS} users")
+    if (idx + 1) % 2000 == 0:
+        print(f"  ...processed {idx + 1}/{N_USERS} users")
 
 print(f"  Generated {len(all_sessions)} sessions, {len(all_events)} events")
 
@@ -660,7 +659,7 @@ print(con.execute(\"\"\"
         FROM events e
         JOIN users u ON e.user_id = u.user_id
         WHERE CAST(e.event_time AS DATE) = CAST(u.signup_date AS DATE) + 30
-          AND e.event_type IN ('play', 'app_open')
+          AND e.event_type IN ('play', 'app_open', 'daily_mix_play')
     )
     SELECT
         u.experiment_variant,

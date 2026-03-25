@@ -4,7 +4,7 @@ A portfolio project demonstrating end-to-end product analytics: problem diagnosi
 
 ## The Problem
 
-A mobile-first music streaming app (freemium model) saw D30 retention for new users decline from 28% → 25% over one quarter. Early-life engagement (first-week listening minutes) also dropped, especially on mobile. Qualitative signals pointed to a common issue: new users couldn't find an easy "press play" option and their early sessions were short and search-dominated.
+A mobile-first music streaming app (freemium model) saw D30 retention for new users decline from ~28% to ~23% over two quarters. Early-life engagement (first-week listening minutes) also dropped, especially on mobile. Qualitative signals pointed to a common issue: new users couldn't find an easy "press play" option and their early sessions were short and search-dominated.
 
 ## The Solution
 
@@ -15,12 +15,23 @@ A personalised **Daily Mix** playlist pinned on the Home screen for the first 30
 ```
 ├── data_generator.py              # Generates ~12K users, ~690K events
 ├── daily_mix_data/                # Generated CSVs (not committed - run generator)
+│   ├── users.csv
+│   ├── tracks.csv
+│   ├── artists.csv
+│   ├── sessions.csv
+│   └── events.csv
 ├── sql/
 │   └── schema_and_queries.sql     # DDL + 12 analytical queries (PostgreSQL)
 ├── notebooks/
 │   ├── 00_setup_test.ipynb        # DuckDB loader + quick validation
 │   ├── 01_baseline_analysis.ipynb # Funnels, retention curves, behavioural insights
 │   └── 02_experiment_analysis.ipynb # A/B test results, guardrails, trade-off decision
+├── dashboard/
+│   └── index.html                 # Interactive Plotly.js dashboard
+├── docs/
+│   ├── case_study.md              # Full written case study
+│   └── deck.pptx                  # 5-slide presentation deck
+├── .gitignore
 └── requirements.txt
 ```
 
