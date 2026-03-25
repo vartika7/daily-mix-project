@@ -182,4 +182,4 @@ The Daily Mix experiment opens several follow-on workstreams:
 
 ---
 
-*Portfolio project demonstrating end-to-end product analytics: problem framing → data modelling → baseline analysis → feature design → experiment design → results interpretation → business case. Analytical decisions are original. Claude was used to accelerate SQL/Python drafting and dashboard implementation.*
+*Portfolio project demonstrating end-to-end product analytics: problem framing → data modelling → baseline analysis → feature design → experiment design → results interpretation → business case. Analytical decisions are original. AI tools were used to accelerate SQL/Python drafting and dashboard implementation.*

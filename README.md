@@ -97,7 +97,7 @@ Open `notebooks/01_baseline_analysis.ipynb` in VS Code (with Jupyter extension) 
 
 - **Data is synthetic.** Generated with known parameters to demonstrate the analytical workflow. Behavioural correlations are embedded via latent user traits, not hardcoded on outcomes - so analysis recovers them with realistic noise.
 - **Statistical approach:** Retention reported as proportions with confidence intervals. Engagement uses median and Winsorized means to handle power-user skew. Discovery insight uses tercile stratification to control for total listening time.
-- **AI usage:** Claude was used to accelerate SQL/Python drafting. All analytical decisions (metric selection, experiment design, trade-off judgment) are original.
+- **AI usage:** AI tools were used to accelerate SQL/Python drafting. All analytical decisions (metric selection, experiment design, trade-off judgment) are original.
 
 ## Tech Stack
 
