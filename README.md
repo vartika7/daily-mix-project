@@ -108,6 +108,6 @@ Open `notebooks/01_baseline_analysis.ipynb` in VS Code (with Jupyter extension) 
 
 ## Author
 
-Vartika - https://linkedin.com/in/vartika7 | vartika.career@gmail.com
+Vartika - https://linkedin.com/in/vartika7 | vartika.career@gmail.com | [Notion Link](https://bit.ly/4bNV5MC)
 
 Built as a portfolio project for product/data analytics roles. Feedback welcome.
